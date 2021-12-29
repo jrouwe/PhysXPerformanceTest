@@ -118,7 +118,7 @@ void createDynamic()
 		for (int y = 0; y < num_shapes; ++y)
 			for (int z = -10; z <= 10; ++z)
 			{
-				PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(7.5f * x, 20.0f + 2.0f * y, 7.5f * z));
+				PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(7.5f * x, 15.0f + 2.0f * y, 7.5f * z));
 				body->attachShape(*shapes[y]);
 				PxRigidBodyExt::updateMassAndInertia(*body, 1000.0f);
 				gScene->addActor(*body);
