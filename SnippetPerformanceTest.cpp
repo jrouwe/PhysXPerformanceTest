@@ -73,6 +73,9 @@ void createTerrain()
 
 	PxTriangleMesh *mesh = gCooking->createTriangleMesh(desc, gPhysics->getPhysicsInsertionCallback());
 
+	delete [] vertices;
+	delete [] indices;
+
 	// Create an actor
 	PxRigidStatic *actor = gPhysics->createRigidStatic(PxTransform(PxVec3(-center, max_height, -center)));
 
@@ -117,7 +120,7 @@ void createDynamic()
 			{
 				PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(7.5f * x, 20.0f + 2.0f * y, 7.5f * z));
 				body->attachShape(*shapes[y]);
-				PxRigidBodyExt::updateMassAndInertia(*body, 10.0f);
+				PxRigidBodyExt::updateMassAndInertia(*body, 1000.0f);
 				gScene->addActor(*body);
 			}
 
