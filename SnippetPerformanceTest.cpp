@@ -89,7 +89,7 @@ void createTerrain()
 	mesh->release();
 }
 
-void createDynamic()
+void createDynamic(bool inCCD)
 {
 	// Create convex mesh
 	const PxVec3 convex_points[] = { PxVec3(0, 1, 0), PxVec3(1, 0, 0), PxVec3(-1, 0, 0), PxVec3(0, 0, 1), PxVec3(0, 0, -1) };
@@ -119,6 +119,7 @@ void createDynamic()
 			for (int z = -10; z <= 10; ++z)
 			{
 				PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(7.5f * x, 15.0f + 2.0f * y, 7.5f * z));
+				body->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, inCCD);
 				body->attachShape(*shapes[y]);
 				PxRigidBodyExt::updateMassAndInertia(*body, 1000.0f);
 				gScene->addActor(*body);
@@ -129,7 +130,34 @@ void createDynamic()
 		shapes[i]->release();
 }
 
-void initPhysics(int inNumThreads)
+static PxFilterFlags filterShaderDiscrete(
+	PxFilterObjectAttributes /*attributes0*/,
+	PxFilterData /*filterData0*/,
+	PxFilterObjectAttributes /*attributes1*/,
+	PxFilterData /*filterData1*/,
+	PxPairFlags& pairFlags,
+	const void* /*constantBlock*/,
+	PxU32 /*constantBlockSize*/)
+{
+	pairFlags = PxPairFlag::eCONTACT_DEFAULT;
+	return PxFilterFlags();
+}
+
+static PxFilterFlags filterShaderCCD(
+	PxFilterObjectAttributes /*attributes0*/,
+	PxFilterData /*filterData0*/,
+	PxFilterObjectAttributes /*attributes1*/,
+	PxFilterData /*filterData1*/,
+	PxPairFlags& pairFlags,
+	const void* /*constantBlock*/,
+	PxU32 /*constantBlockSize*/)
+{
+	pairFlags = PxPairFlag::eCONTACT_DEFAULT;
+	pairFlags |= PxPairFlag::eDETECT_CCD_CONTACT;
+	return PxFilterFlags();
+}
+
+void initPhysics(int inNumThreads, bool inCCD)
 {
 	gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
 	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(),true,nullptr);
@@ -140,7 +168,9 @@ void initPhysics(int inNumThreads)
 	PxSceneDesc desc(gPhysics->getTolerancesScale());
 	desc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
 	desc.cpuDispatcher	= gDispatcher;
-	desc.filterShader	= PxDefaultSimulationFilterShader;
+	desc.filterShader	= inCCD? filterShaderCCD : filterShaderDiscrete;
+	if (inCCD)
+		desc.flags |= PxSceneFlag::eENABLE_CCD;
 	gScene = gPhysics->createScene(desc);
 
 	// Create material
@@ -150,7 +180,7 @@ void initPhysics(int inNumThreads)
 	createTerrain();
 
 	// Create dynamic objects
-	createDynamic();
+	createDynamic(inCCD);
 }
 
 void stepPhysics()
@@ -171,30 +201,37 @@ void cleanupPhysics()
 int snippetMain(int, const char*const*)
 {
 	// Trace header
-	cout << "Thread Count, Steps / Second" << endl;
+	cout << "Motion Quality, Thread Count, Steps / Second" << endl;
 
-	for (int num_threads = 1; num_threads <= (int)thread::hardware_concurrency(); ++num_threads)
+	for (int mq = 0; mq < 2; ++mq)
 	{
-		// Init physics, use 0 threads when num_threads is 1 to avoid communication overhead between main thread and worker pool (all work will be done on main thread in this case)
-		initPhysics(num_threads == 1? 0 : num_threads);
+		// Determine motion quality
+		bool use_ccd = mq == 1;
+		string motion_quality_str = mq == 0? "Discrete" : "CCD";
 
-		constexpr int cMaxIterations = 500;
+		for (int num_threads = 1; num_threads <= (int)thread::hardware_concurrency(); ++num_threads)
+		{
+			// Init physics, use 0 threads when num_threads is 1 to avoid communication overhead between main thread and worker pool (all work will be done on main thread in this case)
+			initPhysics(num_threads == 1? 0 : num_threads, use_ccd);
 
-		// Start measuring
-		chrono::high_resolution_clock::time_point clock_start = chrono::high_resolution_clock::now();
+			constexpr int cMaxIterations = 500;
+
+			// Start measuring
+			chrono::high_resolution_clock::time_point clock_start = chrono::high_resolution_clock::now();
 				
-		// Step the world for a fixed amount of iterations
-		for (int iterations = 0; iterations < cMaxIterations; ++iterations)
-			stepPhysics();
+			// Step the world for a fixed amount of iterations
+			for (int iterations = 0; iterations < cMaxIterations; ++iterations)
+				stepPhysics();
 
-		// Stop measuring
-		chrono::high_resolution_clock::time_point clock_end = chrono::high_resolution_clock::now();
-		chrono::nanoseconds total_duration = chrono::duration_cast<chrono::nanoseconds>(clock_end - clock_start);
+			// Stop measuring
+			chrono::high_resolution_clock::time_point clock_end = chrono::high_resolution_clock::now();
+			chrono::nanoseconds total_duration = chrono::duration_cast<chrono::nanoseconds>(clock_end - clock_start);
 
-		// Trace stat line
-		cout << num_threads << ", " << double(cMaxIterations) / (1.0e-9 * total_duration.count()) << endl;
+			// Trace stat line
+			cout << motion_quality_str << ", " << num_threads << ", " << double(cMaxIterations) / (1.0e-9 * total_duration.count()) << endl;
 
-		cleanupPhysics();
+			cleanupPhysics();
+		}
 	}
 
 #ifdef RENDER_SNIPPET

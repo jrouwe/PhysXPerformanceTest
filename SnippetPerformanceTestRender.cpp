@@ -9,7 +9,7 @@
 
 using namespace physx;
 
-extern void initPhysics(int inNumThreads);
+extern void initPhysics(int inNumThreads, bool inCCD);
 extern void stepPhysics();
 extern void cleanupPhysics();
 
@@ -80,7 +80,7 @@ void renderLoop()
 
 	atexit(exitCallback);
 
-	initPhysics(2);
+	initPhysics(2, true);
 	glutMainLoop();
 }
 
