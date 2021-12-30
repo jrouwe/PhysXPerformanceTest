@@ -8,8 +8,13 @@
 
 // STL includes
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <thread>
 #include <chrono>
+
+// Options
+#define RECORD_PER_FRAME
 
 using namespace physx;
 using namespace std;
@@ -198,6 +203,15 @@ void cleanupPhysics()
 	PX_RELEASE(gFoundation);
 }
 
+/// Convert type to string
+template<typename T>
+string ConvertToString(const T &inValue)
+{
+    ostringstream oss;
+    oss << inValue;
+    return oss.str();
+}
+
 int snippetMain(int, const char*const*)
 {
 	// Trace header
@@ -214,18 +228,35 @@ int snippetMain(int, const char*const*)
 			// Init physics, use 0 threads when num_threads is 1 to avoid communication overhead between main thread and worker pool (all work will be done on main thread in this case)
 			initPhysics(num_threads == 1? 0 : num_threads, use_ccd);
 
+		#ifdef RECORD_PER_FRAME
+			// Open per frame timing output
+			ofstream per_frame_file;
+			per_frame_file.open(("physx_per_frame_" + motion_quality_str + "_th" + ConvertToString(num_threads) + ".csv").c_str(), ofstream::out | ofstream::trunc);
+			per_frame_file << "Frame, Time (ms)" << endl;
+		#endif // RECORD_PER_FRAME
+
 			constexpr int cMaxIterations = 500;
 
-			// Start measuring
-			chrono::high_resolution_clock::time_point clock_start = chrono::high_resolution_clock::now();
-				
+			chrono::nanoseconds total_duration(0);
+
 			// Step the world for a fixed amount of iterations
 			for (int iterations = 0; iterations < cMaxIterations; ++iterations)
+			{
+				// Start measuring
+				chrono::high_resolution_clock::time_point clock_start = chrono::high_resolution_clock::now();
+				
 				stepPhysics();
+				
+				// Stop measuring
+				chrono::high_resolution_clock::time_point clock_end = chrono::high_resolution_clock::now();
+				chrono::nanoseconds duration = chrono::duration_cast<chrono::nanoseconds>(clock_end - clock_start);
+				total_duration += duration;
 
-			// Stop measuring
-			chrono::high_resolution_clock::time_point clock_end = chrono::high_resolution_clock::now();
-			chrono::nanoseconds total_duration = chrono::duration_cast<chrono::nanoseconds>(clock_end - clock_start);
+			#ifdef RECORD_PER_FRAME
+				// Record time taken this iteration
+				per_frame_file << iterations << ", " << (1.0e-6 * duration.count()) << endl;
+			#endif // RECORD_PER_FRAME
+			}
 
 			// Trace stat line
 			cout << motion_quality_str << ", " << num_threads << ", " << double(cMaxIterations) / (1.0e-9 * total_duration.count()) << endl;
