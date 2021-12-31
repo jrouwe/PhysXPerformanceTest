@@ -189,9 +189,9 @@ void initPhysics(int inNumThreads, bool inCCD)
 	createDynamic(inCCD);
 }
 
-void stepPhysics()
+void stepPhysics(void *inScratch, int inScratchSize)
 {
-	gScene->simulate(1.0f / 60.0f);
+	gScene->simulate(1.0f / 60.0f, nullptr, inScratch, inScratchSize);
 	gScene->fetchResults(true);
 }
 	
@@ -217,6 +217,10 @@ int snippetMain(int, const char*const*)
 {
 	// Trace header
 	cout << "Motion Quality, Thread Count, Steps / Second" << endl;
+
+	// Allocate scratch buffer
+	constexpr int cScratchSize = 10 * 1024 * 1024;
+	void *scratch = malloc(cScratchSize);
 
 	for (int mq = 0; mq < 2; ++mq)
 	{
@@ -246,7 +250,8 @@ int snippetMain(int, const char*const*)
 				// Start measuring
 				chrono::high_resolution_clock::time_point clock_start = chrono::high_resolution_clock::now();
 				
-				stepPhysics();
+				// Do step
+				stepPhysics(scratch, cScratchSize);
 				
 				// Stop measuring
 				chrono::high_resolution_clock::time_point clock_end = chrono::high_resolution_clock::now();
@@ -265,6 +270,9 @@ int snippetMain(int, const char*const*)
 			cleanupPhysics();
 		}
 	}
+
+	// Free the scratch buffer
+	free(scratch);
 
 #ifdef RENDER_SNIPPET
 	extern void renderLoop();

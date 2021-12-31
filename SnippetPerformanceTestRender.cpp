@@ -10,7 +10,7 @@
 using namespace physx;
 
 extern void initPhysics(int inNumThreads, bool inCCD);
-extern void stepPhysics();
+extern void stepPhysics(void *inScratch, int inScratchSize);
 extern void cleanupPhysics();
 
 Snippets::Camera *gCamera = nullptr;
@@ -40,7 +40,7 @@ void idleCallback()
 
 void renderCallback()
 {
-	stepPhysics();
+	stepPhysics(nullptr, 0);
 
 	Snippets::startRender(gCamera->getEye(), gCamera->getDir());
 
