@@ -126,6 +126,7 @@ void createDynamic(bool inCCD)
 				PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(7.5f * x, 15.0f + 2.0f * y, 7.5f * z));
 				body->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, inCCD);
 				body->attachShape(*shapes[y]);
+				body->setSolverIterationCounts(2, 10); // Set the solver iteration count to the same values as the defaults for Jolt
 				PxRigidBodyExt::updateMassAndInertia(*body, 1000.0f);
 				gScene->addActor(*body);
 			}
