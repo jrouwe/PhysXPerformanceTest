@@ -165,7 +165,7 @@ static PxFilterFlags filterShaderCCD(
 void initPhysics(int inNumThreads, bool inCCD)
 {
 	gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
-	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(),true,nullptr);
+	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale());
 	gCooking = PxCreateCooking(PX_PHYSICS_VERSION, *gFoundation, PxCookingParams(PxTolerancesScale()));
 	gDispatcher = PxDefaultCpuDispatcherCreate(inNumThreads);
 
